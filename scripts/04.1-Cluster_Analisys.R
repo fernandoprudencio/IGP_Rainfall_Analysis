@@ -78,6 +78,14 @@ fviz_cluster(pam.res,
   repel = TRUE, # Avoid label overplotting (slow)
   ggtheme = theme_classic()
 )
+#'
+#' HAY MUCHOS MÉTODOS PARA CALCULAR ESTA INFORMACIÓN DE DISTANCIA
+#'   EN ESTE CODE, DESCRIBIMOS LAS MEDIDAS DE DISTANCIAS MÁS COMUNES, ADEMÁS
+#'   DE CALCULAR Y VISUALIZARLOS
+#'
+#' La elección de la medida de distancia es un paso crítico en la agrupación,
+#'   este definirá cómo se calculará la similitud entre dos elementos (x, y),
+#'   influyendo en la forma de los grupos finales.
 
 
 
