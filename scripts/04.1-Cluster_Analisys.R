@@ -1,3 +1,4 @@
+library(tidyverse)
 data("USArrests")      # Load the data set
 df <- scale(USArrests) # Scale the data
 colnames(df)
@@ -48,7 +49,35 @@ print(pam.res)
 #'   use esto:
 dd <- cbind(USArrests, cluster = pam.res$cluster)
 head(dd, n = 3)
-
+#'
+#' Acceso a los resultados de la función pam()
+#'   La función pam() devuelve un objeto de clase pam cuyos
+#'   componentes incluyen:
+#'     medoides   : objetos que representan grupos
+#'     clustering : un vector que contiene el número de agrupación de
+#'       cada objeto
+#' 
+#' Se puede acceder a estos componentes de la siguiente manera:
+#'   Cluster medoids: New Mexico, Nebraska
+pam.res$medoids
+#'   Cluster numbers
+head(pam.res$clustering)
+#'
+#' Visualización de clústeres PAM
+#'   Para visualizar los resultados de la partición, usaremos la
+#'     función fviz_cluster() [ paquete factoextra ]. Dibuja un
+#'     diagrama de dispersión de puntos de datos coloreados por
+#'     números de clúster. Si los datos contienen más de 2 variables,
+#'     el algoritmo de Análisis de componentes principales (PCA) se
+#'     utiliza para reducir la dimensionalidad de los datos. En este
+#'     caso, las dos primeras dimensiones principales se utilizan para
+#'     trazar los datos.
+fviz_cluster(pam.res,
+  palette = c("#00AFBB", "#FC4E07"), # color palette
+  ellipse.type = "t", # Concentration ellipse
+  repel = TRUE, # Avoid label overplotting (slow)
+  ggtheme = theme_classic()
+)
 
 
 
