@@ -78,10 +78,3 @@ fviz_cluster(pam.res,
   repel = TRUE, # Avoid label overplotting (slow)
   ggtheme = theme_classic()
 )
-
-
-
-
-
-
-
