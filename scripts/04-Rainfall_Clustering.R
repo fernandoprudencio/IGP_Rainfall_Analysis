@@ -69,25 +69,29 @@ df <- coordinates(stck.data) %>%
 names(df) <- c("lon", "lat", sprintf("%.*s", 3, month.name), "elev")
 
 #' Partitioning Around Medoids (PAM)
+#'   Calculating the number of optimal cluster
+factoextra::fviz_nbclust(stzn.df, pam, method = "silhouette")
+k.nbclust <- 8
+
 #'   Standardization of the data
 stzn.df <- scale(df) %>% as_tibble()
-
-#'   Calculating the number of optimal cluster
-factoextra::fviz_nbclust(stzn.df, kmeans, method = "silhouette")
-k.nbclust <- 2
-
+#'
+#' ===========================================
+#' ==================== Or ===================
+#' ===========================================
+#'
 #'   Principal Coomponent Analysis
 stzn.df <- prcomp(df, scale. = T, center = T)
-stzn.df <- stzn.df$x[, 1:6] %>% as_tibble()
+stzn.df <- stzn.df$x[, 1:15] %>% as_tibble()
 
 #'   Calculating distance matrix
 dist.df <- cluster::daisy(stzn.df, metric = "euclidean")
 #euclidean gower manhattan
 
 #'   Data grouping
-clus.df <- pam(dist.df, k.nbclust, diss = T, medoids = mdos)
-mdos <- clus.df$medoids
-clus.df <- kmeans(dist.df, k.nbclust, iter.max = 5)
+clus.df <- pam(dist.df, k.nbclust, diss = T)
+#mdos <- clus.df$medoids
+#clus.df <- kmeans(dist.df, k.nbclust, iter.max = 5)
 
 #' Building the results to gridded data
 xy.coord <- coordinates(stck.data) %>%
@@ -110,6 +114,6 @@ data.res  <- res(stck.data)
 data.grid <- rasterFromXYZ(grid.df, data.res, data.crs, digits = 0)
 
 writeRaster(data.grid,
-  "data/raster/cluster_k2_dist_EUCLIDEAN_part2_andes_PERU_without_PCA.tif",
+  "data/raster/cluster_k8_dist_EUCLIDEAN_all_PERU_with_PCA_15cpt.tif",
   overwrite = T
 )# Pacific_and_westANDES_eastANDES
