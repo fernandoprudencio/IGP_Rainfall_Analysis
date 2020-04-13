@@ -97,7 +97,6 @@ factoextra::fviz_cluster(pam.res,
   ellipse.type = "t", # Concentration ellipse
   repel = TRUE, # Avoid label overplotting (slow)
   ggtheme = theme_classic()
-<<<<<<< HEAD
 )
 #'
 #' CLUSTERING DISTANCE MEASURES
@@ -194,6 +193,3 @@ round(as.matrix(dd)[1:3, 1:3], 2)
 factoextra::fviz_dist(dist.eucl)
 factoextra::fviz_dist(dd)
 #'   Red: high similarity (ie: low dissimilarity) | Blue: low similarity
-=======
-)
->>>>>>> master
