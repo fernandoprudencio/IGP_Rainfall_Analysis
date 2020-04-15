@@ -46,7 +46,7 @@ library(magrittr)
 Sys.setlocale(category = "LC_ALL", locale = "english")
 
 #' Defining constants
-k.regions <- c(6)
+k.regions <- c(8)
 
 #' Reading vectorial data
 lyrs <- rgdal::ogrListLayers(
@@ -92,7 +92,7 @@ df %<>%
 
 names(df)[2:3] <- c("mes", "pp")
 
-hm.palette <- colorRampPalette(brewer.pal(9, "YlGnBu"), space = "Lab")
+hm.palette <- colorRampPalette(brewer.pal(9, "RdBu"), space = "Lab")
 
 heatmap.plt <- ggplot(df, aes(mes, inter)) +
   geom_raster(aes(fill = pp)) +
