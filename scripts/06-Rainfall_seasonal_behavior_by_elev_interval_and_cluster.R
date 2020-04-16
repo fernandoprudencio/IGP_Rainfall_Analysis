@@ -1,13 +1,14 @@
 #' @title
-#' Rainfall seasonal behavior by cluster region
+#' Rainfall seasonal behavior by elevation interval and cluster region
 #'
 #' @description
 #' this script plots the seasonal behavior of the estimated rainfall
-#'   (remote sensing) from homogeneous regions (clusters)
+#'   (remote sensing) by elevation interval from homogeneous regions (clusters)
 #'
 #' @author Fernando Prudencio
 #'
 #' @data
+#' 'k.regions', number (location) of cluster region
 #' 'region', homogeneous regions built from a cluster analysis
 #' 'pp', gridded rainfall climatological data built by Aybar et al. (2019)
 #' 'dem', SRTM digital elevation model resampled to 10km
@@ -16,8 +17,8 @@ rm(list = ls())
 
 #' Installing packages
 pkg <- c(
-  "sf", "tidyverse", "ncdf4", "raster", "ggplot2", "stringr",
-  "arules", "reshape2", "RColorBrewer", "magrittr"
+  "sf", "tidyverse", "ncdf4", "raster", "lattice", "stringr",
+  "arules", "reshape2", "RColorBrewer", "magrittr", "latticeExtra"
 )
 
 sapply(
@@ -37,10 +38,11 @@ library(arules)
 library(stringr)
 library(ncdf4)
 library(raster)
-library(ggplot2)
 library(RColorBrewer)
 library(reshape2)
 library(magrittr)
+library(lattice)
+library(latticeExtra)
 
 #' Changing language
 Sys.setlocale(category = "LC_ALL", locale = "english")
@@ -88,36 +90,53 @@ df %<>%
   ) %>%
   dplyr::select(inter, sprintf("%.*s", 3, month.name)) %>%
   melt(id.vars = "inter") %>%
+  mutate(inter = as.factor(inter)) %>%
   as_tibble()
 
 names(df)[2:3] <- c("mes", "pp")
 
+#' Defining the color palette
 hm.palette <- colorRampPalette(brewer.pal(9, "RdBu"), space = "Lab")
 
-heatmap.plt <- ggplot(df, aes(mes, inter)) +
-  geom_raster(aes(fill = pp)) +
-  scale_fill_gradientn(
-    colours = hm.palette(100),
-    limits = c(0, 320)
-  ) +
-  theme_bw() +
-  ggtitle(
-    "Seasonal Rainfall by Elevation",
-    subtitle = "from 1981 to 2017\nCLUSTER 8"
-  ) +
-  labs(x = "", y = "Elevation interval [m]\n", fill = "[mm]") +
-  scale_x_discrete(expand = c(0, 0)) +
-  scale_y_discrete(expand = c(0, 0)) +
-  theme(
-    plot.title    = element_text(size = 15),
-    plot.subtitle = element_text(size = 15),
-    legend.title  = element_text(size = 12),
-    axis.text.x   = element_text(size = 12),
-    axis.text.y   = element_text(size = 12),
-    axis.title    = element_text(size = 20)
-  )
-heatmap.plt
-ggsave(heatmap.plt,
-  filename = "exports/rainfall_by_elevation_heatmap_cluster8.png",
-  width = 17, height = 15, units = "cm", dpi = 500
+#' Saving plot
+png("exports/rainfall_by_elevation_heatmap_cluster8.png",
+  width = 17, height = 15, units = "cm", res = 500
 )
+
+#' Ploting heatmap
+levelplot(pp ~ mes * inter,
+  data = df,
+  main = list("Seasonal Rainfall by Elevation",
+    cex = 1.5,
+    font = 1
+  ),
+  xlab = "",
+  ylab = list("Elevation interval\n[mm]",
+    cex = 1.2,
+    font = 1
+  ),
+  col.regions = hm.palette,
+  colorkey = list(
+    at = seq(0, 320, 10),
+    # space = "bottom", #location of legend
+    labels = list(at = seq(0, 320, 60))
+  ),
+  # panel = panel.levelplot.points, #show points into grid
+  cex = 1.2,
+  aspect = "iso",
+  scale = list(
+    x = list(rot = 45, cex = 0.8, font = 1),
+    y = list(cex = 0.8, font = 1)
+  ),
+  # contour = T, #show contour of data interpolated
+  region = T,
+  border = "black",
+  par.settings = list(
+    panel.background = list(col = "white"),
+    axis.line = list(lwd = 1)
+  )
+) #+
+# layer_(panel.2dsmoother(..., n = 200)) #smooth or interpolate data
+
+#' Closing the saved of plot
+dev.off()
