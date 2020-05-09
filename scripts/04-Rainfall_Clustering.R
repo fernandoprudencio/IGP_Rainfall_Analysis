@@ -58,7 +58,7 @@ region <- st_read(
 #  ))
 
 #' Reading raster data
-pp  <- brick("data/raster/pp/pisco/clim/PISCOp_v2.1.1_clim_1981-2017.nc")
+pp  <- brick("data/raster/pp/pisco/clim_v221/PISCOp_v2.1.1_clim_1981-2017.nc")
 dem <- raster("data/raster/dem/SRTM_10km_resampled_to_PISCO.nc")
 
 #' Stacking rainfall climatology and elevation
