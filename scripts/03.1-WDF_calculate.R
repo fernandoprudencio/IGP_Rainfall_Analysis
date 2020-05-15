@@ -1,13 +1,13 @@
 #' @title
-#' Wet Day Frequency of  gauge data
+#' Dry Day Frequency of  gauge data
 #'
 #' @description
-#' this script calculates the WDF of gauge data
+#' this script calculates the DDF of gauge data
 #'
 #' @author Fernando Prudencio
-#' 
+#'
 #' @data
-#' 
+#'
 
 rm(list = ls())
 
@@ -34,23 +34,23 @@ library(reshape2)
 library(stringr)
 
 #' Change to English language
-Sys.setlocale(category = 'LC_ALL', locale = 'english')
+Sys.setlocale(category = "LC_ALL", locale = "english")
 
 #' Loading functions
-source('scripts/functions.R')
+source("scripts/functions.R")
 
 #' Loading color palette
 source("scripts/color_palette.R")
 
 #' LOAD CONSTANTS
-k.prdo <- c('1980-01-01', '2013-12-31')
-k.date.day <- seq(as.Date('1928-11-02'), as.Date('2015-10-31'), by = 'day')
-k.date.year <- seq(as.Date('1980-01-01'), as.Date('2013-12-31'), by = 'year')
-k.date.plt <- seq(as.Date('2020-03-01'), as.Date('2020-12-31'), by = 'day')
+k.prdo <- c("1980-01-01", "2013-12-31")
+k.date.day <- seq(as.Date("1928-11-02"), as.Date("2015-10-31"), by = "day")
+k.date.year <- seq(as.Date("1980-01-01"), as.Date("2013-12-31"), by = "year")
+k.date.plt <- seq(as.Date("2020-03-01"), as.Date("2020-12-31"), by = "day")
 k.years <- c(1980:2013)
 k.dry.yr <- c(2005, 2010)
 k.regions <- c(8)
-k.threshold <- 0.1
+k.threshold <- 0.9
 
 #' READ VECTORIAL DATA
 #'   read cluster region
@@ -79,17 +79,17 @@ sf.gauge.lct <- st_read(
 #' READ TABLE DATA
 tbl.gauge.lct <-
   read.csv("data/table/BD_with_filterQA/LISTA_ESTACIONES.csv",
-           header = T, sep = ";"
+    header = T, sep = ";"
   ) %>%
   mutate(CODIGO = as.character(CODIGO)) %>%
   as_tibble()
 
 tbl.gauge.data <- read.csv("data/table/BD_with_filterQA/BD_Pp.csv",
-                           header = T, sep = ";"
+  header = T, sep = ";"
 ) %>%
   mutate(date = k.date.day) %>%
   as_tibble() %>%
-  mutate_all(~na_if(., -99.9)) %>%
+  mutate_all(~ na_if(., -99.9)) %>%
   filter(date >= k.prdo[1] & date <= k.prdo[2])
 
 #' SELECT RAINGAUGE INTO REGION CLUSTER
@@ -98,7 +98,6 @@ sf.gauge.rg <- sf.gauge.lct %>%
   st_as_sf() %>%
   drop_na() %>%
   mutate(cod = as.character(CODIGO))
-
 
 #' CALCULATE AMOUNT OF NODATA VALUES FOR EACH RAINGAUGE
 miss.val.amoun <- tbl.gauge.data %>%
@@ -114,7 +113,7 @@ df.miss.val <- tibble(
 ) %>%
   filter(miss.per < 10)
 
-#' DATAFRAME WITH MEAN RAINGAUGE DATA BY CLUSTER REGION WITH MORE THAN 10% OF
+#' DATAFRAME WITH MEAN RAINGAUGE DATA BY CLUSTER REGION WITH LESS THAN 10% OF
 #'   MISSING VALUES. FURTHER, WITHOUT JANUARY AND FEBRUARY
 df.rgn.data <- tibble(
   date = tbl.gauge.data$date,
@@ -122,10 +121,14 @@ df.rgn.data <- tibble(
     dplyr::select(df.miss.val$cod) %>%
     apply(1, FUN = function(x) mean(x, na.rm = T))
 ) %>%
-  mutate(wdf = if_else(pp.mean > k.threshold, 1, 0)) %>%
+  mutate(month = str_sub(date, 6, 7)) %>%
+  group_by(month) %>%
+  mutate(decil = quantile(pp.mean, k.threshold)) %>%
+  ungroup() %>%
+  mutate(wdf = ifelse(pp.mean >= decil, 1, 0)) %>%
   filter(!(substr(date, 6, 7) %in% c("01", "02")))
 
-#' DATAFRAME WITH AVERAGE ACCUMULATED WDF BY CLUSTER REGION
+#' DATAFRAME WITH AVERAGE ACCUMULATED DDF BY CLUSTER REGION
 for (i in k.years) {
   if (i == k.years[1]) {
     df.wdf.ac <- df.rgn.data %>%
@@ -162,6 +165,56 @@ df.wdf.ac.dry <- df.wdf.ac %>%
   ) %>%
   as_tibble()
 
+#' PLOT TEMPORAL EVOLUTION ACCUMULATED DDF
+plt.wdf.ssnl <- ggplot(df.wdf.ac.dry, aes(date, yr.2005)) +
+  annotate("rect",
+    xmin = as.Date("2020-04-20"),
+    xmax = as.Date("2020-10-10"),
+    ymin = 0, ymax = 200, alpha = 0.1, fill = "red", color = "red"
+  ) +
+  geom_ribbon(
+    aes(ymin = wdf.min, ymax = wdf.max),
+    alpha = 0.5, color = "black"
+  ) +
+  geom_line(colour = "blue", size = 1) +
+  labs(
+    y = "Wet Day Frequency",
+    title = "Temporal evolution of Wet Day Frequency",
+    subtitle = "from 1980 to 2013"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0),
+    plot.subtitle = element_text(size = 15, hjust = 0),
+    axis.text.x = element_text(size = 12, angle = 0, hjust = -0.3),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 15),
+    panel.grid.minor = element_blank(),
+    panel.grid = element_line(
+      size = 0.3, color = "gray", linetype = "dashed"
+    ),
+    panel.border = element_rect(size = 1)
+  ) +
+  scale_x_date(date_labels = "%b", breaks = "1 month", expand = c(0, 0)) +
+  scale_y_continuous(
+    breaks = seq(0, 60, 20),
+    limits = c(0, 60),
+    expand = c(0, 0)
+  ) +
+  geom_line(aes(date, yr.2010), colour = "black", size = 1) +
+  geom_line(aes(date, wdf.mean),
+    colour = "white",
+    size = 1,
+    linetype = "dashed"
+  )
+
+ggsave(
+  plot = plt.wdf.ssnl,
+  sprintf("exports/wdf_ssnl_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
+  width = 14, height = 15, units = "cm", dpi = 1000
+)
+
 #' PLOT ACCUMULATED DDF BY YEAR
 wdf.yr <- tibble(
   wdf = apply(df.wdf.ac, 2, max),
@@ -171,8 +224,6 @@ wdf.yr <- tibble(
     ubic.dry.05 = ifelse(str_sub(date, 1, 4) == "2005", wdf, NA),
     ubic.dry.10 = ifelse(str_sub(date, 1, 4) == "2010", wdf, NA)
   )
-
-blue <- rgb(62, 87, 173, maxColorValue = 255)
 
 plt.wdf.yr <- ggplot(wdf.yr, aes(date, wdf)) +
   geom_hline(
@@ -187,8 +238,8 @@ plt.wdf.yr <- ggplot(wdf.yr, aes(date, wdf)) +
   ) +
   geom_line(colour = "gray", size = 1.4) +
   geom_point(colour = "gray", size = 2.5, shape = 15) +
-  geom_point(aes(date, ubic.dry.05), color = "blue", size = 3, shape = 15) +
-  geom_point(aes(date, ubic.dry.10), color = "black", size = 3, shape = 15) +
+  geom_point(aes(date, ubic.dry.05), color = "blue", size = 4.5, shape = 15) +
+  geom_point(aes(date, ubic.dry.10), color = "black", size = 4.5, shape = 15) +
   labs(y = "Wet Day Frequency") +
   theme_bw() +
   theme(
@@ -199,25 +250,23 @@ plt.wdf.yr <- ggplot(wdf.yr, aes(date, wdf)) +
     axis.title.x = element_blank(),
     axis.title.y = element_text(size = 17),
     panel.grid = element_line(size = 0.3, color = "gray", linetype = "dashed"),
-    #panel.grid.minor = element_blank(),
     panel.border = element_rect(size = 1)
   ) +
   scale_x_date(date_labels = "%Y", breaks = "5 year", expand = c(0, 0)) +
   scale_y_continuous(
-    breaks = seq(120, 300, 20),
-    limits = c(121, 300),
+    breaks = seq(0, 60, 10),
+    limits = c(0, 60),
     expand = c(0, 0)
   )
 
 ggsave(
   plot = plt.wdf.yr,
-  sprintf("exports/wdf_yr_region_n%s_thr_0.1_1980-2013.png", k.regions),
+  sprintf("exports/wdf_yr_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
   width = 18, height = 9, units = "cm", dpi = 1000
 )
 
 #' BOXPLOT ACCUMULATED DDF
-
-month.lbl <- tibble(month = sprintf("%.02d", 3:12), lbl = month.abb[3:12])
+month.lbl <- tibble(month = sprintf("%.02d", 1:12), lbl = month.abb)
 
 df.wdf.month <- df.wdf.ac %>%
   mutate(date = k.date.plt, month = str_sub(date, 6, 7)) %>%
@@ -237,13 +286,13 @@ df.wdf.month <- df.wdf.ac %>%
     ubic.dry.10 = ifelse(variable == "2010", wdf, NA)
   ) %>%
   ungroup() %>%
-  left_join(month.lbl, by = "month")
+  left_join(month.lbl %>% filter(month != c("01", "02")), by = "month")
 
 names(df.wdf.month)[2] <- c("year")
 
 boxplt.wdf <- ggplot(df.wdf.month, mapping = aes(month, wdf)) +
   geom_boxplot(
-    alpha = 0, outlier.size = NULL, width = 0.5,
+    alpha = 1, outlier.size = NULL, width = 0.5,
     fatten = 1.5, lwd = .8, color = "gray"
   ) +
   geom_jitter(
@@ -257,10 +306,10 @@ boxplt.wdf <- ggplot(df.wdf.month, mapping = aes(month, wdf)) +
     shape = 3, size = 4, colour = "red",
     fill = "red"
   ) +
-  scale_x_discrete(label = month.lbl$lbl) +
+  scale_x_discrete(label = month.lbl$lbl[3:12]) +
   scale_y_continuous(
-    breaks = seq(0, 300, 20),
-    limits = c(-5, 300),
+    breaks = seq(0, 65, 20),
+    limits = c(-5, 65),
     expand = c(0, 0)
   ) +
   geom_text(
@@ -269,23 +318,26 @@ boxplt.wdf <- ggplot(df.wdf.month, mapping = aes(month, wdf)) +
     vjust = -.5, check_overlap = T, color = "gray"
   ) +
   geom_point(
-    aes(month, ubic.otlr), color = "gray", size = 1.5
+    aes(month, ubic.otlr),
+    color = "gray", size = 1.5
   ) +
-  geom_text(
-    aes(label = txt.dry.05),
-    size = 3, na.rm = TRUE, hjust = 0.5,
-    vjust = -.5, check_overlap = F, color = "blue"
-  ) +
-  geom_text(
-    aes(label = txt.dry.10),
-    size = 3, na.rm = TRUE, hjust = 0.5,
-    vjust = -.5, check_overlap = F, color = "black"
+  #  geom_text(
+  #    aes(label = txt.dry.05),
+  #    size = 3, na.rm = TRUE, hjust = 0.5,
+  #    vjust = -.5, check_overlap = F, color = "blue"
+  #  ) +
+  #  geom_text(
+  #    aes(label = txt.dry.10),
+  #    size = 3, na.rm = TRUE, hjust = 0.5,
+  #    vjust = -.5, check_overlap = F, color = "black"
+  #  ) +
+  geom_point(
+    aes(month, ubic.dry.05),
+    color = "blue", size = 1.5
   ) +
   geom_point(
-    aes(month, ubic.dry.05), color = "blue", size = 1.5
-  ) +
-  geom_point(
-    aes(month, ubic.dry.10), color = "black", size = 1.5
+    aes(month, ubic.dry.10),
+    color = "black", size = 1.5
   ) +
   labs(
     title = "Monthly WDF distribution", subtitle = "from 1980 to 2013",
@@ -309,6 +361,6 @@ boxplt.wdf <- ggplot(df.wdf.month, mapping = aes(month, wdf)) +
 
 ggsave(
   plot = boxplt.wdf,
-  sprintf("exports/wdf_month_region_n%s_thr_0.1_1980-2013.png", k.regions),
+  sprintf("exports/wdf_month_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
   width = 12, height = 16, units = "cm", dpi = 1000
 )

@@ -99,7 +99,6 @@ sf.gauge.rg <- sf.gauge.lct %>%
   drop_na() %>%
   mutate(cod = as.character(CODIGO))
 
-
 #' CALCULATE AMOUNT OF NODATA VALUES FOR EACH RAINGAUGE
 miss.val.amoun <- tbl.gauge.data %>%
   dplyr::select(sf.gauge.rg$cod) %>%
@@ -122,7 +121,11 @@ df.rgn.data <- tibble(
     dplyr::select(df.miss.val$cod) %>%
     apply(1, FUN = function(x) mean(x, na.rm = T))
 ) %>%
-  mutate(ddf = if_else(pp.mean <= k.threshold, 1, 0)) %>%
+  mutate(month = str_sub(date, 6, 7)) %>%
+  group_by(month) %>%
+  mutate(decil = quantile(pp.mean, k.threshold)) %>%
+  ungroup() %>%
+  mutate(ddf = ifelse(pp.mean <= decil, 1, 0)) %>%
   filter(!(substr(date, 6, 7) %in% c("01", "02")))
 
 #' DATAFRAME WITH AVERAGE ACCUMULATED DDF BY CLUSTER REGION
@@ -195,8 +198,8 @@ plt.ddf.ssnl <- ggplot(df.ddf.ac.dry, aes(date, yr.2005)) +
   ) +
   scale_x_date(date_labels = "%b", breaks = "1 month", expand = c(0, 0)) +
   scale_y_continuous(
-    breaks = seq(0, 200, 20),
-    limits = c(0, 200),
+    breaks = seq(0, 130, 20),
+    limits = c(0, 130),
     expand = c(0, 0)
   ) +
   geom_line(aes(date, yr.2010), colour = "black", size = 1) +
@@ -208,7 +211,7 @@ plt.ddf.ssnl <- ggplot(df.ddf.ac.dry, aes(date, yr.2005)) +
 
 ggsave(
   plot = plt.ddf.ssnl,
-  sprintf("exports/ddf_ssnl_region_n%s_thr_0.1_1980-2013.png", k.regions),
+  sprintf("exports/ddf_ssnl_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
   width = 14, height = 15, units = "cm", dpi = 1000
 )
 
@@ -221,8 +224,6 @@ ddf.yr <- tibble(
     ubic.dry.05 = ifelse(str_sub(date, 1, 4) == "2005", ddf, NA),
     ubic.dry.10 = ifelse(str_sub(date, 1, 4) == "2010", ddf, NA)
   )
-
-blue <- rgb(62, 87, 173, maxColorValue = 255)
 
 plt.ddf.yr <- ggplot(ddf.yr, aes(date, ddf)) +
   geom_hline(
@@ -237,8 +238,8 @@ plt.ddf.yr <- ggplot(ddf.yr, aes(date, ddf)) +
   ) +
   geom_line(colour = "gray", size = 1.4) +
   geom_point(colour = "gray", size = 2.5, shape = 15) +
-  geom_point(aes(date, ubic.dry.05), color = "blue", size = 3, shape = 15) +
-  geom_point(aes(date, ubic.dry.10), color = "black", size = 3, shape = 15) +
+  geom_point(aes(date, ubic.dry.05), color = "blue", size = 4.5, shape = 15) +
+  geom_point(aes(date, ubic.dry.10), color = "black", size = 4.5, shape = 15) +
   labs(y = "Dry Day Frequency") +
   theme_bw() +
   theme(
@@ -253,19 +254,19 @@ plt.ddf.yr <- ggplot(ddf.yr, aes(date, ddf)) +
   ) +
   scale_x_date(date_labels = "%Y", breaks = "5 year", expand = c(0, 0)) +
   scale_y_continuous(
-    breaks = seq(0, 200, 25),
-    limits = c(0, 200),
+    breaks = seq(0, 130, 20),
+    limits = c(0, 130),
     expand = c(0, 0)
   )
 
 ggsave(
   plot = plt.ddf.yr,
-  sprintf("exports/ddf_yr_region_n%s_thr_0.1_1980-2013.png", k.regions),
+  sprintf("exports/ddf_yr_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
   width = 18, height = 9, units = "cm", dpi = 1000
 )
 
 #' BOXPLOT ACCUMULATED DDF
-month.lbl <- tibble(month = sprintf("%.02d", 3:12), lbl = month.abb[3:12])
+month.lbl <- tibble(month = sprintf("%.02d", 1:12), lbl = month.abb)
 
 df.ddf.month <- df.ddf.ac %>%
   mutate(date = k.date.plt, month = str_sub(date, 6, 7)) %>%
@@ -285,13 +286,13 @@ df.ddf.month <- df.ddf.ac %>%
     ubic.dry.10 = ifelse(variable == "2010", ddf, NA)
   ) %>%
   ungroup() %>%
-  left_join(month.lbl, by = "month")
+  left_join(month.lbl %>% filter(month != c("01", "02")), by = "month")
 
 names(df.ddf.month)[2] <- c("year")
 
 boxplt.ddf <- ggplot(df.ddf.month, mapping = aes(month, ddf)) +
   geom_boxplot(
-    alpha = 0, outlier.size = NULL, width = 0.5,
+    alpha = 1, outlier.size = NULL, width = 0.5,
     fatten = 1.5, lwd = .8, color = "gray"
   ) +
   geom_jitter(
@@ -305,10 +306,10 @@ boxplt.ddf <- ggplot(df.ddf.month, mapping = aes(month, ddf)) +
     shape = 3, size = 4, colour = "red",
     fill = "red"
   ) +
-  scale_x_discrete(label = month.lbl$lbl) +
+  scale_x_discrete(label = month.lbl$lbl[3:12]) +
   scale_y_continuous(
-    breaks = seq(0, 180, 20),
-    limits = c(-5, 180),
+    breaks = seq(0, 130, 20),
+    limits = c(-5, 130),
     expand = c(0, 0)
   ) +
   geom_text(
@@ -319,16 +320,16 @@ boxplt.ddf <- ggplot(df.ddf.month, mapping = aes(month, ddf)) +
   geom_point(
     aes(month, ubic.otlr), color = "gray", size = 1.5
   ) +
-  geom_text(
-    aes(label = txt.dry.05),
-    size = 3, na.rm = TRUE, hjust = 0.5,
-    vjust = -.5, check_overlap = F, color = "blue"
-  ) +
-  geom_text(
-    aes(label = txt.dry.10),
-    size = 3, na.rm = TRUE, hjust = 0.5,
-    vjust = -.5, check_overlap = F, color = "black"
-  ) +
+#  geom_text(
+#    aes(label = txt.dry.05),
+#    size = 3, na.rm = TRUE, hjust = 0.5,
+#    vjust = -.5, check_overlap = F, color = "blue"
+#  ) +
+#  geom_text(
+#    aes(label = txt.dry.10),
+#    size = 3, na.rm = TRUE, hjust = 0.5,
+#    vjust = -.5, check_overlap = F, color = "black"
+#  ) +
   geom_point(
     aes(month, ubic.dry.05), color = "blue", size = 1.5
   ) +
@@ -357,6 +358,99 @@ boxplt.ddf <- ggplot(df.ddf.month, mapping = aes(month, ddf)) +
 
 ggsave(
   plot = boxplt.ddf,
-  sprintf("exports/ddf_month_region_n%s_thr_0.1_1980-2013.png", k.regions),
+  sprintf("exports/ddf_month_region_n%s_thr_0.1_1980-2013_v2.png", k.regions),
+  width = 12, height = 16, units = "cm", dpi = 1000
+)
+
+#' PLOT SEASONAL BEHAVIOR OF RAINFALL
+df.pp.rgn.data <- tibble(
+  date = tbl.gauge.data$date,
+  pp.mean = tbl.gauge.data %>%
+    dplyr::select(df.miss.val$cod) %>%
+    apply(1, FUN = function(x) mean(x, na.rm = T))
+) %>%
+  mutate(month = str_sub(date, 6, 7)) %>%
+  group_by(month) %>%
+  mutate(decil.1 = quantile(pp.mean, .1)) %>%
+  ungroup() %>%
+  mutate(ddf = ifelse(pp.mean <= decil.1, 1, 0)) %>%
+  group_by(month) %>%
+  mutate(decil.9 = quantile(pp.mean, .9)) %>%
+  ungroup() %>%
+  mutate(wdf = ifelse(pp.mean >= decil.9, 1, 0)) %>%
+  left_join(month.lbl, by = "month")
+
+avr.umbral.ddf <- unique(df.pp.rgn.data$decil.1) %>% mean()
+avr.umbral.wdf <- unique(df.pp.rgn.data$decil.9) %>% mean()
+
+#' region 6
+#'   avr.umbral.ddf = 0.4363271
+#'   avr.umbral.wdf = 3.915852
+
+#' region 8
+#'   avr.umbral.ddf = 0.3022238
+#'   avr.umbral.wdf = 3.117474
+
+boxplt.pp <- ggplot(df.pp.rgn.data, mapping = aes(month, pp.mean)) +
+  geom_boxplot(
+    alpha = 1, outlier.size = .5, width = 0.5,
+    fatten = 1.5, lwd = .5, color = "gray", outlier.color = "gray"
+  ) +
+#  geom_jitter(
+#    shape = 16,
+#    size = 0.2, color = "gray",
+#    position = position_jitter(0.1)
+#  ) +
+  stat_summary(
+    fun.y = "mean",
+    geom = "point",
+    shape = 3, size = 4, colour = "red",
+    fill = "red"
+  ) +
+  scale_x_discrete(label = month.lbl$lbl) +
+  scale_y_continuous(
+    breaks = seq(0, 16, 2),
+    limits = c(-1, 16),
+    expand = c(0, 0)
+  ) +
+  geom_text(
+    aes(x = month, y = decil.1, label = round(decil.1, 2)),
+    size = 3, na.rm = TRUE, hjust = 0.5,
+    vjust = 2, check_overlap = F, color = "red"
+  ) +
+  geom_point(
+    aes(month, decil.1), color = "black", size = 2.5, shape = 25, fill = "red"
+  ) +
+  geom_text(
+    aes(x = month, y = decil.9, label = round(decil.9, 2)),
+    size = 3, na.rm = TRUE, hjust = 0.5,
+    vjust = -1, check_overlap = F, color = "blue"
+  ) +
+  geom_point(
+    aes(month, decil.9), color = "black", size = 2.5, shape = 24, fill = "blue"
+  ) +
+  labs(
+    title = "Daily rainfall distribution", subtitle = "from 1980 to 2013",
+    y = "rainfall (mm/day)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 15),
+    plot.subtitle = element_text(size = 15),
+    axis.text.x = element_text(size = 10, colour = "black"),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 20),
+    axis.ticks.length = unit(.15, "cm"),
+    panel.grid.minor = element_blank(),
+    panel.grid = element_line(
+      size = 0.3, color = "gray", linetype = "dashed"
+    ),
+    panel.border = element_rect(size = 1)
+  )
+
+ggsave(
+  plot = boxplt.pp,
+  sprintf("exports/rainfall_month_region_n%s_thr_0.1_1980-2013.png", k.regions),
   width = 12, height = 16, units = "cm", dpi = 1000
 )
